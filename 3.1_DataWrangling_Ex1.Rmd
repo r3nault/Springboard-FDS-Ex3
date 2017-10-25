@@ -1,0 +1,97 @@
+---
+title: "Exercise 3.1.1 Basic Data Wrangling"
+author: "James Hooi"
+date: "October 25, 2017"
+output: html_document
+---
+
+<style type="text/css">
+body{ font-size: 12px; }
+td { font-size: 8px; }
+h1.title { font-size: 38px; color: DarkBlue; }
+h1 { font-size: 28px; }
+h2 { font-size: 20px; }
+h3 { font-size: 16px; }
+code.r{ font-size: 11px; line-height: 13px; }
+pre { font-size: 11px; line-height: 13px; }
+</style>
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(width=500)
+
+# Load required libraries
+library(dplyr)
+library(tidyr)
+```
+
+## Before wrangling
+Load the data and review how it looks.
+
+```{r dataload, eval=TRUE, echo=TRUE, warning=FALSE}
+  orig.csv <- read.csv("refine_original.csv", stringsAsFactors = FALSE)
+  print(orig.csv)
+```
+
+## Wrangling steps
+
+Using dplyr and tidyr, clean the data per instructions.
+
+- 1: Clean up brand names
+
+Look up name patterns and create cleaned_company column with the cleaned names.
+
+```{r wrangling01, eval=TRUE, echo=TRUE, warning=FALSE}
+  company.distct <- orig.csv %>% distinct(tolower(trimws(company))) %>% select(company = contains("company"))
+  company.distct <- company.distct %>%
+    mutate(cleaned_company = case_when(
+                                      grepl(pattern = "ips$", .$company) | grepl(pattern = "^phi", .$company) ~ "philips",
+                                      grepl(pattern = "^ak", .$company) ~ "akzo",
+                                      grepl(pattern = "^van", .$company) ~ "van houten",
+                                      grepl(pattern = "^uni", .$company) ~ "unilever"
+                                    ))
+  print(company.distct)
+```
+
+Join cleaned names back to main data frame, select columns, clean column names. Then:
+
+- 2: Separate product code and number
+- 3: Add product categories (p = Smartphone, v = TV, x = Laptop, q = Tablet)
+- 4: Add full address for geocoding
+- 5: Create dummy variables for company and product category
+
+```{r wrangling02, eval=TRUE, echo=TRUE, warning=FALSE}
+  working.df <- inner_join(orig.csv, company.distct, by="company") %>%
+    select(company = cleaned_company, product_code_number = Product.code...number, address:name ) %>%
+    # 2: Separate product code and number ####
+    separate(., product_code_number, into = c("product_code","product_number"), sep="-") %>%
+    # 3: Add product categories (p = Smartphone, v = TV, x = Laptop, q = Tablet) ####
+    mutate( product_category = case_when(
+                                        product_code == "p" ~ "Smartphone",
+                                        product_code == "v" ~ "TV",
+                                        product_code == "x" ~ "Laptop",
+                                        product_code == "q" ~ "Tablet"
+                                    )
+    # 4: Add full address for geocoding ####
+            , full_address = paste(address, city, country, sep=", ")
+    # 5: Create dummy variables for company and product category ####
+            , company_philips = if_else(company=="philips",1,0)
+            , company_akzo = if_else(company=="akzo",1,0)
+            , company_van_houten = if_else(company=="van houten",1,0)
+            , company_unilever = if_else(company=="unilever",1,0)
+            , product_smartphone = if_else(product_category=="Smartphone",1,0)
+            , product_tv = if_else(product_category=="TV",1,0)
+            , product_laptop = if_else(product_category=="Laptop",1,0)
+            , product_tablet = if_else(product_category=="Tablet",1,0)
+          )
+```
+
+## After wrangling
+
+Cleaned data (3 outputs):
+```{r outputdata1, eval=TRUE, echo=TRUE, warning=FALSE}
+  print(working.df[,1:8])
+  print(working.df[,9:13])
+  print(working.df[,14:17])
+```

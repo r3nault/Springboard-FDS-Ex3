@@ -1,0 +1,80 @@
+---
+title: "Exercise 3.1.2 Dealing with Missing Values"
+author: "James Hooi"
+date: "October 25, 2017"
+output: html_document
+---
+
+<style type="text/css">
+body{ font-size: 12px; }
+td { font-size: 8px; }
+h1.title { font-size: 38px; color: DarkBlue; }
+h1 { font-size: 28px; }
+h2 { font-size: 20px; }
+h3 { font-size: 16px; }
+code.r{ font-size: 11px; line-height: 13px; }
+pre { font-size: 11px; line-height: 13px; }
+</style>
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+options(width=500)
+
+# Load required libraries
+library(dplyr)
+library(tidyr)
+```
+
+## Before wrangling
+Load the data and review how it looks. Fix missing values per instructions.
+
+```{r dataload, eval=TRUE, echo=TRUE, warning=FALSE}
+  orig.csv <- read.csv("titanic_original.csv", stringsAsFactors = FALSE)
+  str(orig.csv)
+```
+
+### 1: Port of embarkation is missing for passengers from Southampton
+
+```{r explore1, eval=TRUE, echo=TRUE, warning=FALSE}
+rbind(orig.csv %>% group_by(embarked) %>% tally() %>% ungroup, orig.csv[is.na(orig.csv$embarked),])
+```
+
+### 2: Age is missing for some passengers (will be replaced with mean)
+
+```{r explore2, eval=TRUE, echo=TRUE, warning=FALSE}
+cbind(sum(is.na(orig.csv$age)), sum(!is.na(orig.csv$age)))
+```
+
+### 3: Lifeboat is missing for many passengers (will be replaced with dummy value "None")
+
+```{r explore3, eval=TRUE, echo=TRUE, warning=FALSE}
+cbind(sum(orig.csv$boat=="" | is.na(orig.csv$boat)), nrow(orig.csv)-sum(orig.csv$boat=="" | is.na(orig.csv$boat)))
+```
+
+### 4. Cabin number is missing for many passengers (will be turned into a categorical variable)
+
+```{r explore4, eval=TRUE, echo=TRUE, warning=FALSE}
+cbind(sum(is.na(orig.csv$cabin) | orig.csv$cabin==""), nrow(orig.csv)-sum(is.na(orig.csv$cabin) | orig.csv$cabin==""))
+```
+
+## After wrangling
+
+The issues identified above were fixed per the exercise instructions.
+
+```{r fix, eval=TRUE, echo=TRUE, warning=FALSE}
+
+working.df <- orig.csv %>%
+  # 1: Port of embarkation - replace missing values with Southampton
+  mutate(embarked = if_else(embarked=="","S", embarked)
+  # 2: Age - replace missing values with the mean
+         , age = if_else(is.na(age), mean(age, na.rm=TRUE), age)
+  # 3: Lifeboat - replace missing with dummy value
+         , boat = if_else(boat=="", "None", boat)
+  # 4: Cabin - create new column has_cabin_number: 1 if there is a cabin number, 0 otherwise
+         , has_cabin_number = if_else(cabin=="", 0, 1 ))
+
+head(working.df[,1:8], 50)
+head(working.df[,9:15], 50)
+```
+
